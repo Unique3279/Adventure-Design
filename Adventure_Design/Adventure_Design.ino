@@ -11,8 +11,8 @@ private:
   }
 
   void split(char sep) {
-    int nCount = 0;
     int nIndex = 0;
+    int startTime = millis();
 
     String sData = this->Str;
     while (1) {
@@ -26,7 +26,8 @@ private:
       else {
         break;
       }
-      nCount++;
+
+      if (millis() - startTime > 1000) break;   // timeout break
     }
   } 
 
@@ -42,14 +43,17 @@ private:
     yErr = sSplit2.toDouble();
   }
 
-public:                // these two functions refreshes error data and returns the values
-  double getXErr() {
+public:               
+
+  void updateData(){    // update data
     this->getData();
+  }
+
+  double getXErr() {    // return x error value
     return xErr;
   }
 
-  double getYErr() {
-    this->getData();
+  double getYErr() {    // return y error value
     return yErr;
   }
 };
@@ -61,4 +65,8 @@ void setup() {
 }
 
 void loop() {
+  errCalc.updateData();
+  Serial.print(errCalc.getXErr());
+  Serial.print(" , ");
+  Serial.println(errCalc.getYErr());
 }
