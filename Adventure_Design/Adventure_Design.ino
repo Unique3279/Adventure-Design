@@ -1,42 +1,63 @@
 String err[2];
+double xErr = 0.0, yErr = 0.0;
 
-class str{
+class str {
 public:
-  String S;
+  String Str;
 
-  void getStr(String s){
-    s = self->S;
+  void getStr(String s) {
+    this->Str = s;
   }
 
-  void split(String data, char sep){
+  void split(char sep) {
     int nCount = 0;
     int nIndex = 0;
 
     String temp = "";
-    String sData = data;
-    while(1){
+    String temp2 = "";
+    String sData = this->Str;
+    while (1) {
       nIndex = sData.indexOf(sep);
 
-      if(nIndex != -1){
+      if (nIndex != -1) {
         temp = sData.substring(0, nIndex);
         err[0] = temp;
-        sData = sData.substring(nIndex+1);
+        temp2 = sData;
+        sData = sData.substring(nIndex + 1);
+      } 
+      else {
+        err[1] = temp2;
+        break;
       }
-      else{
-        err[1] = sData;
-      }
+      nCount++;
     }
   }
+};
+
+void getData(){               // get directional error from raspberry pi and save x, y error at xErr, yErr vars
+  // get raw error data
+  str data;
+  if (Serial.available()) {
+    data.getStr(Serial.readStringUntil('!'));
+  } 
+
+  // split and parse errors
+  String sXErr, sYErr;
+  data.split(',');
+  sXErr = err[0];
+  sYErr = err[1];
+  xErr = sXErr.toDouble();
+  yErr = sYErr.toDouble();
 }
 
-void setup(){
-    Serial1.begin(9600);
-    Serial1.setTimeout(20);
-
-    if (Serial1.available()) Serial.print("READY");
-    else Serial1.print("Failed to open Serial!");
+void setup() {
+  Serial.begin(9600);
 }
 
-void loop(){
-  
+void loop() {
+  getData();
+  Serial.print(xErr);
+  Serial.print(" , ");
+  Serial.println(yErr);
+  delay(500);
 }
