@@ -1,3 +1,4 @@
+#define PI 3.1415926535897932384626433832795
 class errorCalculator {
 
   private:
@@ -60,59 +61,55 @@ class errorCalculator {
 
 class PIDController {
 private:
-    double Kp; // 비례 이득
-    double Ki; // 적분 이득
-    double Kd; // 미분 이득
-
-    double previousError; // 이전 오차 값
-    double integral;      // 적분 항
-
+  double Kp; // 비례 이득
+  double Ki; // 적분 이득
+  double Kd; // 미분 이득
+  double prevErr = 0.0;
+  double sum = 0;
 public:
-    // 생성자: PID 게인 초기화
-    PIDController(double Kp, double Ki, double Kd) {
-        this->Kp = Kp;
-        this->Ki = Ki;
-        this->Kd = Kd;
-        this->previousError = 0.0;
-        this->integral = 0.0;
+  PIDController(double Kp, double Ki, double Kd){
+    this->Kp = Kp;
+    this->Ki = Ki;
+    this->Kd = Kd;
+  }
+private:
+    double Ep = 0;
+    double Ei = 0;
+    double Ed = 0;
+
+    double derivate(double currentErr, long long dt){
+      double dErr = currentErr - this->prevErr;
+      return dErr / (dt / 1000.0);    // Return Err/s
     }
-
-    // PID 제어 출력 계산
-    double compute(double setPoint, double currentValue, long dt) {
-        // 오차 계산
-        double error = setPoint - currentValue;
-
-        // 적분 항 업데이트
-        integral += error * (dt / 1000.0);
-
-        // 미분 항 계산
-        double derivative = (error - previousError) / (dt / 1000.0);
-
-        // PID 출력 계산
-        double output = Kp * error + Ki * integral + Kd * derivative;
-
-        // 이전 오차 갱신
-        previousError = error;
-
-        return output;
+    double integral(double currentErr, long long dt){
+      this->sum = this->sum + (currentErr * dt / 1000);
+      this->sum = constrain(this->sum, -100, 100);    // anti-windup
+      return this->sum;
     }
+public:
+  int control(double state, double target, int delta){
+    this->Ep = target - state;
+    this->Ei = this->integral(this->Ep, delta);
+    this->Ed = this->derivate(this->Ep, delta);
+    int ctrlVal = (int)((this->Ep * this->Kp) + (this->Ei * this->Ki) + (this->Ed * this->Kd));
+    ctrlVal = constrain(ctrlVal, -255, 255);    // anti-windup
+    this->prevErr = this->Ep;
+    return ctrlVal;
+  }
 
-    // 게인 값을 설정하는 함수 (필요 시 사용)
-    void setTunings(double Kp, double Ki, double Kd) {
-        this->Kp = Kp;
-        this->Ki = Ki;
-        this->Kd = Kd;
-    }
+  void reset(){
+    this->prevErr = 0.0;
+    this->sum = 0.0;
+  }
 };
 
 
-  errorCalculator errCalc;
+  double xErr = -30;
 
   void setup() {
     Serial.begin(9600);
   }
 
-  long xErr = 300;
-
   void loop() {
+
   }
