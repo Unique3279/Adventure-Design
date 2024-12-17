@@ -1,106 +1,100 @@
 class errorCalculator {
 private:
-  double xErr = 0.0, yErr = 0.0;
   String Str;
-  String sSplit1 = "";
-  String sSplit2 = "";          // works, don't touch it
 
   void getStr(String s) {
     this->Str = s;
   }
 
-  void split(char sep) {
-    int nIndex = 0;
-    int startTime = millis();
-
-    String sData = this->Str;
-    // while (1) {
-      nIndex = sData.indexOf(sep);
-
-      if (nIndex != -1) {
-        sSplit1 = sData.substring(0, nIndex);
-        sSplit2 = sData.substring(nIndex + 1);
-        sData = sData.substring(nIndex + 1);
-      } 
-      // else {                   // disabled block for optimization
-      //   break;
-      // }
-
-      // if (millis() - startTime > 1000) break;   // timeout break
-    // }
-  } 
-
-  void getData(){               // get directional error from raspberry pi and save x, y error at xErr, yErr vars *it works, don't you touch it!!!!!*
+  void getSerialData(){
     // get raw error data
+    String temp;
     if (Serial.available()) {
-      this->getStr(Serial.readStringUntil('!'));
+      temp = Serial.readStringUntil('\n');
+      temp.trim();
+      getStr(temp);
     } 
-
-    // split and parse error values
-    this->split(',');
-    xErr = sSplit1.toDouble();
-    yErr = sSplit2.toDouble();
   }
 
 public:               
 
-  void updateData(){    // update data
-    this->getData();
+  void updateData(){
+    this->getSerialData();
   }
 
-  double getXErr() {    // return x error value
-    return xErr;
-  }
-
-  double getYErr() {    // return y error value
-    return yErr;
+  String getData(){
+    return this->Str;
   }
 };
 
-class PIDController {
+class BLDC {
 private:
-  double Kp;
-  double Ki;
-  double Kd;
-  double prevErr = 0.0;
-  double sum = 0;
+  int pwm;
+  int dir;
+  int brk;
 public:
-  PIDController(double Kp, double Ki, double Kd){
-    this->Kp = Kp;
-    this->Ki = Ki; 
-    this->Kd = Kd;
-  }
-private:
-    double Ep = 0;
-    double Vi = 0;
-    double Ed = 0;
-
-    double integral(double currentErr, unsigned int dt){
-      this->sum = this->sum + this->Ki * currentErr * dt;
-      double ctrl = constrain(this->sum, -100, 100);    // anti-windup
-      return ctrl;
-    }
-
-    double derivate(double currentErr, unsigned int dt){
-      double dErr = (currentErr - this->prevErr) / dt;
-      return dErr;    // Return dErrx
-    }
-public:
-  int control(double state, double target, unsigned int dt){
-    this->Ep = target - state;
-    this->Vi = this->integral(this->Ep, dt);
-    this->Ed = this->derivate(this->Ep, dt);
-    int ctrlVal = (int)((this->Ep * this->Kp) + this->Vi + (this->Ed * this->Kd));
-    ctrlVal = constrain(ctrlVal, -255, 255);    // anti-windup
-    this->prevErr = this->Ep;
-    return ctrlVal;
+  BLDC(int pwm, int dir, int brk) {
+    this->pwm = pwm;
+    this->dir = dir;
+    this->brk = brk;
+    pinMode(pwm, OUTPUT);
+    pinMode(dir, OUTPUT);
+    pinMode(brk, OUTPUT);
   }
 
-  void reset(){
-    this->prevErr = 0.0;
-    this->sum = 0.0;
+  void Clockwise(int speed) {
+    digitalWrite(dir, HIGH);
+    analogWrite(pwm, speed);
+  }
+
+  void counterClockWise(int speed) {
+    digitalWrite(dir, LOW);
+    analogWrite(pwm, speed);
+  }
+
+  void stop(){
+    analogWrite(pwm, 0);
+    digitalWrite(brk, HIGH);
   }
 };
+
+class STEP{
+  private:
+  int DIR;
+  int STEPS;
+  public:
+  STEP(int d, int s){
+    this->DIR = d;
+    this->STEPS = s;
+    pinMode(DIR, OUTPUT);
+    pinMode(STEPS, OUTPUT);
+  }
+
+  void revCounterClockwise(){
+    digitalWrite(DIR, HIGH);
+    for(int i = 0; i<5; i++){
+      digitalWrite(STEPS, HIGH);
+      delayMicroseconds(1500);
+      digitalWrite(STEPS, LOW);
+      delayMicroseconds(1500);
+    }
+  }
+
+  void revClockwise(){
+    digitalWrite(DIR, LOW);
+    for(int i = 0; i<5; i++){
+      digitalWrite(STEPS, HIGH);
+      delayMicroseconds(1500);
+      digitalWrite(STEPS, LOW);
+      delayMicroseconds(1500);
+    }
+  }
+};
+
+errorCalculator EC;
+BLDC BaseMotor(2, 3, 4);
+STEP YawMotor1(5, 6);
+STEP YawMotor2(7, 8);
 
 
 void setup() {
@@ -109,5 +103,22 @@ void setup() {
 
 
 void loop() {
-  
+  EC.updateData();
+  if(EC.getData() == "stop"){
+    BaseMotor.stop();
+  }
+  else if(EC.getData() == "left"){
+    BaseMotor.counterClockWise(5);
+  }
+  else if(EC.getData() == "right"){
+    BaseMotor.Clockwise(5);
+  }
+  else if(EC.getData() == "up"){
+    YawMotor1.revCounterClockwise();
+    YawMotor2.revClockwise();
+  }
+  else if(EC.getData() == "down"){
+    YawMotor1.revClockwise();
+    YawMotor2.revCounterClockwise();
+  }
 }
