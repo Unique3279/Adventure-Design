@@ -1,4 +1,3 @@
-#define PI 3.1415926535897932384626433832795
 class errorCalculator {
 private:
   double xErr = 0.0, yErr = 0.0;
@@ -103,21 +102,12 @@ public:
   }
 };
 
-PIDController test(1, 0, 0);
-double xErr = -30;
 
 void setup() {
   Serial.begin(9600);
 }
 
-int f = xErr;
-unsigned int prev = millis(), now;
 
 void loop() {
-  f += (int)(10*sin((double)millis()*PI/1000));
-  now = millis();
-  f += test.control(f, 0.0, now-prev);
-  Serial.println(f);
-  delay(10);
-  prev = millis();
+  
 }
