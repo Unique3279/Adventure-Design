@@ -1,5 +1,4 @@
 class errorCalculator {
-
 private:
   double xErr = 0.0, yErr = 0.0;
   String Str;
@@ -15,7 +14,7 @@ private:
     int startTime = millis();
 
     String sData = this->Str;
-    while (1) {
+    // while (1) {
       nIndex = sData.indexOf(sep);
 
       if (nIndex != -1) {
@@ -23,12 +22,12 @@ private:
         sSplit2 = sData.substring(nIndex + 1);
         sData = sData.substring(nIndex + 1);
       } 
-      else {
-        break;
-      }
+      // else {                   // disabled block for optimization
+      //   break;
+      // }
 
-      if (millis() - startTime > 1000) break;   // timeout break
-    }
+      // if (millis() - startTime > 1000) break;   // timeout break
+    // }
   } 
 
   void getData(){               // get directional error from raspberry pi and save x, y error at xErr, yErr vars *it works, don't you touch it!!!!!*
@@ -58,15 +57,57 @@ public:
   }
 };
 
-errorCalculator errCalc;
+class PIDController {
+private:
+  double Kp;
+  double Ki;
+  double Kd;
+  double prevErr = 0.0;
+  double sum = 0;
+public:
+  PIDController(double Kp, double Ki, double Kd){
+    this->Kp = Kp;
+    this->Ki = Ki; 
+    this->Kd = Kd;
+  }
+private:
+    double Ep = 0;
+    double Vi = 0;
+    double Ed = 0;
+
+    double integral(double currentErr, unsigned int dt){
+      this->sum = this->sum + this->Ki * currentErr * dt;
+      double ctrl = constrain(this->sum, -100, 100);    // anti-windup
+      return ctrl;
+    }
+
+    double derivate(double currentErr, unsigned int dt){
+      double dErr = (currentErr - this->prevErr) / dt;
+      return dErr;    // Return dErrx
+    }
+public:
+  int control(double state, double target, unsigned int dt){
+    this->Ep = target - state;
+    this->Vi = this->integral(this->Ep, dt);
+    this->Ed = this->derivate(this->Ep, dt);
+    int ctrlVal = (int)((this->Ep * this->Kp) + this->Vi + (this->Ed * this->Kd));
+    ctrlVal = constrain(ctrlVal, -255, 255);    // anti-windup
+    this->prevErr = this->Ep;
+    return ctrlVal;
+  }
+
+  void reset(){
+    this->prevErr = 0.0;
+    this->sum = 0.0;
+  }
+};
+
 
 void setup() {
   Serial.begin(9600);
 }
 
+
 void loop() {
-  errCalc.updateData();
-  Serial.print(errCalc.getXErr());
-  Serial.print(" , ");
-  Serial.println(errCalc.getYErr());
+  
 }
